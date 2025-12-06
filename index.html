@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Full Screen Shooter</title>
+  <title>Full Screen Shooter with Score & Health</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { background: black; display: block; }
@@ -21,11 +21,13 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-let player = { x: canvas.width/2, y: canvas.height/2, w: 40, h: 40, speed: 5, angle: 0 };
+let player = { x: canvas.width/2, y: canvas.height/2, w: 40, h: 40, speed: 5, angle: 0, health: 3 };
 let bullets = [];
 let enemies = [];
 let keys = {};
 let mouse = { x: canvas.width/2, y: canvas.height/2 };
+let score = 0;
+let gameOver = false;
 
 function drawPlayer() {
   ctx.save();
@@ -46,7 +48,23 @@ function drawEnemies() {
   enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
 }
 
+function drawHUD() {
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 20, 30);
+  ctx.fillText("Health: " + player.health, 20, 60);
+}
+
 function update() {
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "50px Arial";
+    ctx.fillText("GAME OVER", canvas.width/2 - 150, canvas.height/2);
+    ctx.font = "30px Arial";
+    ctx.fillText("Final Score: " + score, canvas.width/2 - 100, canvas.height/2 + 50);
+    return;
+  }
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Movement WASD
@@ -63,6 +81,7 @@ function update() {
   drawPlayer();
   drawBullets();
   drawEnemies();
+  drawHUD();
 
   // Update bullets
   bullets.forEach((b, i) => {
@@ -76,13 +95,25 @@ function update() {
   // Update enemies
   enemies.forEach((e, i) => {
     e.y += 2;
-    if (e.y > canvas.height) enemies.splice(i, 1);
+    if (e.y > canvas.height) {
+      enemies.splice(i, 1);
+      player.health -= 1; // lose health if enemy passes
+      if (player.health <= 0) gameOver = true;
+    }
+    // Collision with bullets
     bullets.forEach((b, j) => {
       if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
         enemies.splice(i, 1);
         bullets.splice(j, 1);
+        score += 10;
       }
     });
+    // Collision with player
+    if (player.x < e.x+e.w && player.x+player.w > e.x && player.y < e.y+e.h && player.y+player.h > e.y) {
+      enemies.splice(i, 1);
+      player.health -= 1;
+      if (player.health <= 0) gameOver = true;
+    }
   });
 
   requestAnimationFrame(update);
@@ -114,8 +145,10 @@ canvas.addEventListener("click", e => {
 
 // Spawn enemies
 setInterval(() => {
-  let x = Math.random() * (canvas.width-40);
-  enemies.push({ x, y: 0, w: 40, h: 40 });
+  if (!gameOver) {
+    let x = Math.random() * (canvas.width-40);
+    enemies.push({ x, y: 0, w: 40, h: 40 });
+  }
 }, 1000);
 
 update();
