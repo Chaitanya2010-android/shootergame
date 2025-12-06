@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Full Screen Shooter with Score & Health</title>
+  <title>Shooter with Guns & Colors</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { background: black; display: block; }
@@ -13,7 +13,6 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Resize canvas to full window
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -25,36 +24,57 @@ let player = { x: canvas.width/2, y: canvas.height/2, w: 40, h: 40, speed: 5, an
 let bullets = [];
 let enemies = [];
 let keys = {};
-let mouse = { x: canvas.width/2, y: canvas.height/2 };
+let mouse = { x: canvas.width/2, y: canvas.height/2, down: false };
 let score = 0;
 let gameOver = false;
 
+// Gun system
+let guns = ["Pistol", "AR", "Sniper", "SMG"];
+let currentGun = "Pistol";
+
+// Draw player (green)
 function drawPlayer() {
   ctx.save();
   ctx.translate(player.x, player.y);
   ctx.rotate(player.angle);
-  ctx.fillStyle = "white";
+  ctx.fillStyle = "green";
   ctx.fillRect(-player.w/2, -player.h/2, player.w, player.h);
   ctx.restore();
 }
 
+// Draw bullets
 function drawBullets() {
-  ctx.fillStyle = "red";
+  ctx.fillStyle = "yellow";
   bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
 }
 
+// Draw enemies (red)
 function drawEnemies() {
-  ctx.fillStyle = "white";
+  ctx.fillStyle = "red";
   enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
 }
 
+// HUD
 function drawHUD() {
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
   ctx.fillText("Score: " + score, 20, 30);
   ctx.fillText("Health: " + player.health, 20, 60);
+
+  // Gun buttons (bottom right)
+  let btnSize = 40;
+  guns.forEach((gun, i) => {
+    let x = canvas.width - (btnSize+10);
+    let y = canvas.height - (guns.length-i)* (btnSize+10);
+    ctx.fillStyle = (gun === currentGun) ? "blue" : "gray";
+    ctx.fillRect(x, y, btnSize, btnSize);
+    ctx.fillStyle = "white";
+    ctx.font = "12px Arial";
+    ctx.fillText(gun[0], x+12, y+25); // first letter as label
+  });
 }
 
+// Update loop
 function update() {
   if (gameOver) {
     ctx.fillStyle = "red";
@@ -87,9 +107,8 @@ function update() {
   bullets.forEach((b, i) => {
     b.x += b.vx;
     b.y += b.vy;
-    if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
-      bullets.splice(i, 1);
-    }
+    b.range -= 1;
+    if (b.range <= 0) bullets.splice(i, 1);
   });
 
   // Update enemies
@@ -97,10 +116,9 @@ function update() {
     e.y += 2;
     if (e.y > canvas.height) {
       enemies.splice(i, 1);
-      player.health -= 1; // lose health if enemy passes
+      player.health -= 1;
       if (player.health <= 0) gameOver = true;
     }
-    // Collision with bullets
     bullets.forEach((b, j) => {
       if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
         enemies.splice(i, 1);
@@ -108,7 +126,6 @@ function update() {
         score += 10;
       }
     });
-    // Collision with player
     if (player.x < e.x+e.w && player.x+player.w > e.x && player.y < e.y+e.h && player.y+player.h > e.y) {
       enemies.splice(i, 1);
       player.health -= 1;
@@ -116,7 +133,37 @@ function update() {
     }
   });
 
+  // SMG continuous fire
+  if (mouse.down && currentGun === "SMG") {
+    shootBullet();
+  }
+
   requestAnimationFrame(update);
+}
+
+// Shooting logic
+function shootBullet() {
+  let angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+  let speed = 10;
+  let range;
+  let shots = 1;
+
+  if (currentGun === "Pistol") { range = canvas.height/2; shots = 1; }
+  if (currentGun === "AR") { range = canvas.height*0.75; shots = 5; }
+  if (currentGun === "Sniper") { range = canvas.height; shots = 1; }
+  if (currentGun === "SMG") { range = canvas.height*0.6; shots = 1; }
+
+  for (let i=0; i<shots; i++) {
+    bullets.push({
+      x: player.x,
+      y: player.y,
+      w: 8,
+      h: 8,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      range: range/10 // range measured in frames
+    });
+  }
 }
 
 // Key handling
@@ -128,18 +175,21 @@ canvas.addEventListener("mousemove", e => {
   mouse.x = e.clientX;
   mouse.y = e.clientY;
 });
+canvas.addEventListener("mousedown", e => {
+  mouse.down = true;
+  if (currentGun !== "SMG") shootBullet();
+});
+canvas.addEventListener("mouseup", e => mouse.down = false);
 
+// Gun button click detection
 canvas.addEventListener("click", e => {
-  // Shoot towards cursor
-  let angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-  let speed = 10;
-  bullets.push({
-    x: player.x,
-    y: player.y,
-    w: 8,
-    h: 8,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed
+  let btnSize = 40;
+  guns.forEach((gun, i) => {
+    let x = canvas.width - (btnSize+10);
+    let y = canvas.height - (guns.length-i)* (btnSize+10);
+    if (e.clientX >= x && e.clientX <= x+btnSize && e.clientY >= y && e.clientY <= y+btnSize) {
+      currentGun = gun;
+    }
   });
 });
 
