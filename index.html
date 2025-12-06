@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple 2D Shooter</title>
+  <style>
+    canvas { background: black; display: block; margin: auto; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let player = { x: 380, y: 550, w: 40, h: 40 };
+let bullets = [];
+let enemies = [];
+
+function drawPlayer() {
+  ctx.fillStyle = "white";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+}
+
+function drawBullets() {
+  ctx.fillStyle = "red";
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+}
+
+function drawEnemies() {
+  ctx.fillStyle = "white";
+  enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
+}
+
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawPlayer();
+  drawBullets();
+  drawEnemies();
+
+  bullets.forEach((b, i) => {
+    b.y -= 7;
+    if (b.y < 0) bullets.splice(i, 1);
+  });
+
+  enemies.forEach((e, i) => {
+    e.y += 2;
+    if (e.y > canvas.height) enemies.splice(i, 1);
+    bullets.forEach((b, j) => {
+      if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
+        enemies.splice(i, 1);
+        bullets.splice(j, 1);
+      }
+    });
+  });
+
+  requestAnimationFrame(update);
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft" && player.x > 0) player.x -= 10;
+  if (e.key === "ArrowRight" && player.x+player.w < canvas.width) player.x += 10;
+  if (e.key === " ") bullets.push({ x: player.x+player.w/2-5, y: player.y, w: 10, h: 20 });
+});
+
+setInterval(() => {
+  let x = Math.random() * (canvas.width-40);
+  enemies.push({ x, y: 0, w: 40, h: 40 });
+}, 1000);
+
+update();
+</script>
+</body>
+</html>
