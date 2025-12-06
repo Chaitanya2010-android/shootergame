@@ -1,207 +1,90 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Shooter with Guns & Colors</title>
+  <title>3D Shooter</title>
   <style>
     body { margin: 0; overflow: hidden; }
-    canvas { background: black; display: block; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
+// Player (green cube)
+let playerGeometry = new THREE.BoxGeometry(1,1,1);
+let playerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+let player = new THREE.Mesh(playerGeometry, playerMaterial);
+scene.add(player);
+player.position.z = 5;
 
-let player = { x: canvas.width/2, y: canvas.height/2, w: 40, h: 40, speed: 5, angle: 0, health: 3 };
-let bullets = [];
+// Enemies
 let enemies = [];
-let keys = {};
-let mouse = { x: canvas.width/2, y: canvas.height/2, down: false };
-let score = 0;
-let gameOver = false;
-
-// Gun system
-let guns = ["Pistol", "AR", "Sniper", "SMG"];
-let currentGun = "Pistol";
-
-// Draw player (green)
-function drawPlayer() {
-  ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.rotate(player.angle);
-  ctx.fillStyle = "green";
-  ctx.fillRect(-player.w/2, -player.h/2, player.w, player.h);
-  ctx.restore();
+function spawnEnemy() {
+  let geometry = new THREE.BoxGeometry(1,1,1);
+  let material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  let enemy = new THREE.Mesh(geometry, material);
+  enemy.position.set(Math.random()*10-5, Math.random()*10-5, -20);
+  scene.add(enemy);
+  enemies.push(enemy);
 }
 
-// Draw bullets
-function drawBullets() {
-  ctx.fillStyle = "yellow";
-  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
-}
-
-// Draw enemies (red)
-function drawEnemies() {
-  ctx.fillStyle = "red";
-  enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
-}
-
-// HUD
-function drawHUD() {
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 20, 30);
-  ctx.fillText("Health: " + player.health, 20, 60);
-
-  // Gun buttons (bottom right)
-  let btnSize = 40;
-  guns.forEach((gun, i) => {
-    let x = canvas.width - (btnSize+10);
-    let y = canvas.height - (guns.length-i)* (btnSize+10);
-    ctx.fillStyle = (gun === currentGun) ? "blue" : "gray";
-    ctx.fillRect(x, y, btnSize, btnSize);
-    ctx.fillStyle = "white";
-    ctx.font = "12px Arial";
-    ctx.fillText(gun[0], x+12, y+25); // first letter as label
-  });
-}
-
-// Update loop
-function update() {
-  if (gameOver) {
-    ctx.fillStyle = "red";
-    ctx.font = "50px Arial";
-    ctx.fillText("GAME OVER", canvas.width/2 - 150, canvas.height/2);
-    ctx.font = "30px Arial";
-    ctx.fillText("Final Score: " + score, canvas.width/2 - 100, canvas.height/2 + 50);
-    return;
-  }
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Movement WASD
-  if (keys["w"] && player.y > 0) player.y -= player.speed;
-  if (keys["s"] && player.y < canvas.height) player.y += player.speed;
-  if (keys["a"] && player.x > 0) player.x -= player.speed;
-  if (keys["d"] && player.x < canvas.width) player.x += player.speed;
-
-  // Rotate towards mouse
-  let dx = mouse.x - player.x;
-  let dy = mouse.y - player.y;
-  player.angle = Math.atan2(dy, dx);
-
-  drawPlayer();
-  drawBullets();
-  drawEnemies();
-  drawHUD();
-
-  // Update bullets
-  bullets.forEach((b, i) => {
-    b.x += b.vx;
-    b.y += b.vy;
-    b.range -= 1;
-    if (b.range <= 0) bullets.splice(i, 1);
-  });
-
-  // Update enemies
-  enemies.forEach((e, i) => {
-    e.y += 2;
-    if (e.y > canvas.height) {
-      enemies.splice(i, 1);
-      player.health -= 1;
-      if (player.health <= 0) gameOver = true;
-    }
-    bullets.forEach((b, j) => {
-      if (b.x < e.x+e.w && b.x+b.w > e.x && b.y < e.y+e.h && b.y+b.h > e.y) {
-        enemies.splice(i, 1);
-        bullets.splice(j, 1);
-        score += 10;
-      }
-    });
-    if (player.x < e.x+e.w && player.x+player.w > e.x && player.y < e.y+e.h && player.y+player.h > e.y) {
-      enemies.splice(i, 1);
-      player.health -= 1;
-      if (player.health <= 0) gameOver = true;
-    }
-  });
-
-  // SMG continuous fire
-  if (mouse.down && currentGun === "SMG") {
-    shootBullet();
-  }
-
-  requestAnimationFrame(update);
-}
-
-// Shooting logic
+// Bullets
+let bullets = [];
 function shootBullet() {
-  let angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-  let speed = 10;
-  let range;
-  let shots = 1;
-
-  if (currentGun === "Pistol") { range = canvas.height/2; shots = 1; }
-  if (currentGun === "AR") { range = canvas.height*0.75; shots = 5; }
-  if (currentGun === "Sniper") { range = canvas.height; shots = 1; }
-  if (currentGun === "SMG") { range = canvas.height*0.6; shots = 1; }
-
-  for (let i=0; i<shots; i++) {
-    bullets.push({
-      x: player.x,
-      y: player.y,
-      w: 8,
-      h: 8,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      range: range/10 // range measured in frames
-    });
-  }
+  let geometry = new THREE.SphereGeometry(0.1, 8, 8);
+  let material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+  let bullet = new THREE.Mesh(geometry, material);
+  bullet.position.copy(player.position);
+  bullet.velocity = new THREE.Vector3(0,0,-0.5);
+  scene.add(bullet);
+  bullets.push(bullet);
 }
 
-// Key handling
+// Controls
+let keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("click", shootBullet);
 
-// Mouse handling
-canvas.addEventListener("mousemove", e => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-});
-canvas.addEventListener("mousedown", e => {
-  mouse.down = true;
-  if (currentGun !== "SMG") shootBullet();
-});
-canvas.addEventListener("mouseup", e => mouse.down = false);
+function animate() {
+  requestAnimationFrame(animate);
 
-// Gun button click detection
-canvas.addEventListener("click", e => {
-  let btnSize = 40;
-  guns.forEach((gun, i) => {
-    let x = canvas.width - (btnSize+10);
-    let y = canvas.height - (guns.length-i)* (btnSize+10);
-    if (e.clientX >= x && e.clientX <= x+btnSize && e.clientY >= y && e.clientY <= y+btnSize) {
-      currentGun = gun;
+  // Player movement
+  if (keys["w"]) player.position.y += 0.1;
+  if (keys["s"]) player.position.y -= 0.1;
+  if (keys["a"]) player.position.x -= 0.1;
+  if (keys["d"]) player.position.x += 0.1;
+
+  // Bullets
+  bullets.forEach((b, i) => {
+    b.position.add(b.velocity);
+    if (b.position.z < -50) {
+      scene.remove(b);
+      bullets.splice(i,1);
     }
   });
-});
 
-// Spawn enemies
-setInterval(() => {
-  if (!gameOver) {
-    let x = Math.random() * (canvas.width-40);
-    enemies.push({ x, y: 0, w: 40, h: 40 });
-  }
-}, 1000);
+  // Enemies
+  enemies.forEach((e, i) => {
+    e.position.z += 0.05;
+    if (e.position.z > 10) {
+      scene.remove(e);
+      enemies.splice(i,1);
+    }
+  });
 
-update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// Spawn enemies every 2 seconds
+setInterval(spawnEnemy, 2000);
 </script>
 </body>
 </html>
