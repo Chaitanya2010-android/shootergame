@@ -1,25 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Simple 2D Shooter</title>
+  <title>Full Screen Shooter</title>
   <style>
-    canvas { background: black; display: block; margin: auto; }
+    body { margin: 0; overflow: hidden; }
+    canvas { background: black; display: block; }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="800" height="600"></canvas>
+<canvas id="gameCanvas"></canvas>
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let player = { x: 380, y: 550, w: 40, h: 40, speed: 5 };
+// Resize canvas to full window
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+let player = { x: canvas.width/2, y: canvas.height/2, w: 40, h: 40, speed: 5, angle: 0 };
 let bullets = [];
 let enemies = [];
-let keys = {}; // track pressed keys
+let keys = {};
+let mouse = { x: canvas.width/2, y: canvas.height/2 };
 
 function drawPlayer() {
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.angle);
   ctx.fillStyle = "white";
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.fillRect(-player.w/2, -player.h/2, player.w, player.h);
+  ctx.restore();
 }
 
 function drawBullets() {
@@ -35,11 +49,16 @@ function drawEnemies() {
 function update() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Player movement with WASD
+  // Movement WASD
   if (keys["w"] && player.y > 0) player.y -= player.speed;
-  if (keys["s"] && player.y + player.h < canvas.height) player.y += player.speed;
+  if (keys["s"] && player.y < canvas.height) player.y += player.speed;
   if (keys["a"] && player.x > 0) player.x -= player.speed;
-  if (keys["d"] && player.x + player.w < canvas.width) player.x += player.speed;
+  if (keys["d"] && player.x < canvas.width) player.x += player.speed;
+
+  // Rotate towards mouse
+  let dx = mouse.x - player.x;
+  let dy = mouse.y - player.y;
+  player.angle = Math.atan2(dy, dx);
 
   drawPlayer();
   drawBullets();
@@ -47,8 +66,11 @@ function update() {
 
   // Update bullets
   bullets.forEach((b, i) => {
-    b.y -= 7;
-    if (b.y < 0) bullets.splice(i, 1);
+    b.x += b.vx;
+    b.y += b.vy;
+    if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+      bullets.splice(i, 1);
+    }
   });
 
   // Update enemies
@@ -67,14 +89,27 @@ function update() {
 }
 
 // Key handling
-document.addEventListener("keydown", e => {
-  keys[e.key] = true;
-  if (e.key === " ") { // shoot without stopping
-    bullets.push({ x: player.x+player.w/2-5, y: player.y, w: 10, h: 20 });
-  }
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// Mouse handling
+canvas.addEventListener("mousemove", e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
 });
-document.addEventListener("keyup", e => {
-  keys[e.key] = false;
+
+canvas.addEventListener("click", e => {
+  // Shoot towards cursor
+  let angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+  let speed = 10;
+  bullets.push({
+    x: player.x,
+    y: player.y,
+    w: 8,
+    h: 8,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed
+  });
 });
 
 // Spawn enemies
