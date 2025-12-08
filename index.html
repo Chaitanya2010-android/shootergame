@@ -1,18 +1,24 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Simple FPS</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="utf-8" />
+  <title>Browser FPS Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="hud">
-    <div id="score">Score: 0</div>
-    <div id="hint">Click to lock mouse. WASD to move, Mouse to look, Left click to shoot.</div>
+  <div id="overlay">
+    <div id="menu">
+      <h1>Browser FPS Demo</h1>
+      <p>Click to lock pointer and start. WASD to move, Space to jump, Left click to shoot.</p>
+      <button id="startBtn">Start</button>
+    </div>
+    <div id="hud">
+      <div id="health">Health: <span id="healthVal">100</span></div>
+      <div id="ammo">Ammo: <span id="ammoVal">30</span></div>
+    </div>
   </div>
-  <canvas id="game"></canvas>
-
+  <canvas id="c"></canvas>
   <script type="module" src="main.js"></script>
 </body>
 </html>
